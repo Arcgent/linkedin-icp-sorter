@@ -1,0 +1,12 @@
+# Your connections, names, runs and labels stay local
+data/
+.env
+.env.*
+!.env.example
+node_modules/
+.DS_Store
+
+# LinkedIn exports you drop in the folder
+Connections*.csv
+*LinkedInDataExport*
+!examples/*.csv

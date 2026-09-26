@@ -1,0 +1,17 @@
+{
+  "name": "linkedin-icp-sorter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sort your LinkedIn connections into Warm / Maybe warm / Cold / Not relevant with TypeSafe Jev. One question, four answers, one decision per connection.",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build-records.mjs",
+    "engagement": "node --env-file-if-exists=.env scripts/fetch-engagement.mjs",
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "one": "node --env-file-if-exists=.env cli.mjs one",
+    "run": "node --env-file-if-exists=.env cli.mjs run",
+    "bench": "node --env-file-if-exists=.env cli.mjs bench"
+  },
+  "engines": { "node": ">=22" }
+}

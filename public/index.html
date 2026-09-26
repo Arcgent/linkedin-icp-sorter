@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ICP Sorter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --ground: #EFF1EC; --surface: #FFFFFF; --surface-2: #F6F7F3; --ink: #16191E; --muted: #5C636D; --line: #D9DDD3;
+  --accent: #0B6B4F; --accent-ink: #FFFFFF; --focus: #0B6B4F;
+  --b0: #D0440C; --b0-bg: #FCE9E0; --b1: #B47C00; --b1-bg: #FAF0D4; --b2: #1B67C9; --b2-bg: #E3EDFA; --b3: #6E7580; --b3-bg: #ECEDEF;
+  --good: #1E7F4F; --bad: #C0392B;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #111315; --surface: #1A1D20; --surface-2: #212529; --ink: #ECEEEF; --muted: #9AA2AB; --line: #2F343A;
+    --accent: #43C193; --accent-ink: #0B1510; --focus: #43C193;
+    --b0: #FF7F4D; --b0-bg: #3A2016; --b1: #F0B93A; --b1-bg: #372C12; --b2: #62A6FF; --b2-bg: #16283F; --b3: #A3AAB3; --b3-bg: #272B30;
+    --good: #52C98B; --bad: #FF7B6B;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #111315; --surface: #1A1D20; --surface-2: #212529; --ink: #ECEEEF; --muted: #9AA2AB; --line: #2F343A;
+  --accent: #43C193; --accent-ink: #0B1510; --focus: #43C193;
+  --b0: #FF7F4D; --b0-bg: #3A2016; --b1: #F0B93A; --b1-bg: #372C12; --b2: #62A6FF; --b2-bg: #16283F; --b3: #A3AAB3; --b3-bg: #272B30;
+  --good: #52C98B; --bad: #FF7B6B;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--ground); color: var(--ink); font: 15px/1.5 var(--body); -webkit-font-smoothing: antialiased; }
+[hidden] { display: none !important; }
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.mono { font-family: var(--mono); }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+/* shell */
+.wrap { max-width: 1320px; margin: 0 auto; padding-inline: 24px; padding-block: 0 48px; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding-block: 18px 14px; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand b { font: 700 22px/1 var(--display); letter-spacing: -0.01em; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font: 500 12px/1.4 var(--mono); color: var(--muted); background: var(--surface); }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.pill.off .dot { background: var(--bad); }
+.toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--muted); user-select: none; }
+.toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 22px; overflow-x: auto; }
+nav.tabs button { background: none; border: 0; padding: 10px 14px 12px; cursor: pointer; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+nav.tabs button .n { font: 500 12px var(--mono); margin-right: 6px; opacity: .7; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* generic */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+.eyebrow { font: 500 11px/1.2 var(--body); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+h2 { font: 700 20px/1.2 var(--display); margin: 0; text-wrap: balance; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-weight: 500; text-decoration: none; }
+a.btn { color: var(--ink); }
+.btn:hover { border-color: var(--muted); }
+td .sub { display: block; font-size: 12.5px; color: var(--muted); }
+td.role { max-width: 420px; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn.primary:hover { opacity: .9; }
+.btn.small { padding: 6px 10px; font-size: 13px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 999px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+.chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.note { font-size: 13px; color: var(--muted); }
+.warn { font-size: 13px; padding: 8px 12px; border-radius: 8px; background: var(--b1-bg); color: var(--ink); border: 1px solid var(--line); }
+
+/* decision tab */
+.decision { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 22px; align-items: start; }
+.card { padding: 20px 22px; display: grid; gap: 16px; }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.card-head .id { font: 500 20px/1 var(--mono); }
+.card-head .spacer { margin-left: auto; }
+.nav input[type="text"] { width: 96px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); font: 13px var(--mono); }
+dl.fields { margin: 0; display: grid; gap: 0; border-top: 1px solid var(--line); }
+dl.fields > div { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); align-items: start; }
+dl.fields dt { font-size: 13px; color: var(--muted); padding-top: 2px; }
+dl.fields dd { margin: 0; font-size: 16px; font-weight: 500; overflow-wrap: anywhere; transition: filter .15s; }
+dl.fields dd.blur { filter: blur(7px); user-select: none; }
+dl.fields .hide { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; }
+.who { font-size: 13px; color: var(--muted); }
+.who a { color: var(--accent); }
+.result { border-radius: var(--r); padding: 18px; display: grid; gap: 14px; background: var(--surface-2); border: 1px solid var(--line); }
+.result .big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; }
+.result .bucket { font: 700 34px/1 var(--display); letter-spacing: -0.01em; }
+.result .conf { font: 500 16px var(--mono); }
+.probs { display: grid; gap: 6px; }
+.prob { display: grid; grid-template-columns: 110px minmax(0, 1fr) 48px; gap: 10px; align-items: center; font-size: 13px; }
+.prob .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.prob .bar i { display: block; height: 100%; border-radius: 4px; }
+.prob .v { text-align: right; font-family: var(--mono); }
+pre.json { margin: 0; padding: 14px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; font: 12px/1.55 var(--mono); overflow: auto; max-height: 420px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.setup { padding: 22px 24px; }
+#setupview { display: grid; gap: 24px; }
+.question { font: 700 34px/1.12 var(--display); letter-spacing: -0.015em; margin: 4px 0 0; text-wrap: balance; }
+.context { max-width: 68ch; color: var(--muted); margin: 6px 0 0; }
+ol.criteria { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 22px; counter-reset: c; }
+ol.criteria li { counter-increment: c; display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 2px 8px; align-content: start; }
+ol.criteria li::before { content: counter(c); grid-row: span 2; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ink); display: grid; place-items: center; font: 600 12px var(--mono); margin-top: 1px; }
+ol.criteria b { font-weight: 600; }
+ol.criteria span { font-size: 13.5px; color: var(--muted); }
+.answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.answer { border-radius: var(--r); padding: 14px 16px; display: grid; gap: 6px; align-content: start; border: 1px solid var(--line); transition: box-shadow .2s, transform .2s; }
+.answer h3 { margin: 0; font: 700 19px/1.2 var(--display); display: flex; align-items: center; gap: 8px; }
+.answer h3::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+.answer p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink); }
+.answer .next { font-size: 12.5px; color: var(--muted); }
+.answer.picked { box-shadow: 0 0 0 3px currentColor; }
+.setup-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+.edit-grid { display: grid; gap: 14px; }
+.edit-grid label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.edit-grid input, .edit-grid textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); font-size: 14px; }
+.edit-grid textarea { min-height: 70px; resize: vertical; }
+.edit-pair { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 8px; }
+
+/* run tab */
+.stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; }
+.stat { padding: 16px 20px; border-right: 1px solid var(--line); display: grid; gap: 4px; }
+.stat:last-child { border-right: 0; }
+.stat .v { font: 700 30px/1.05 var(--display); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.stat .v.small { font: 500 15px/1.4 var(--mono); padding-top: 8px; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.tile { padding: 16px 18px; border-radius: var(--r); display: grid; gap: 4px; border: 1px solid var(--line); background: var(--surface); }
+.tile .lab { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.tile .lab::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.tile .count { font: 700 36px/1.05 var(--display); font-variant-numeric: tabular-nums; color: var(--ink); }
+.tile .pct { font: 500 13px var(--mono); color: var(--muted); }
+.tile .next { font-size: 13px; color: var(--muted); }
+.tile .fill { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-top: 6px; }
+.tile .fill i { display: block; height: 100%; background: currentColor; transition: width .25s; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; margin-top: 16px; align-items: start; }
+.section { padding: 18px 20px; display: grid; gap: 14px; }
+.hist { position: relative; height: 120px; display: flex; align-items: flex-end; gap: 2px; padding-bottom: 20px; }
+.hist i { flex: 1; background: var(--muted); opacity: .45; border-radius: 2px 2px 0 0; min-height: 1px; }
+.hist i.on { background: var(--accent); opacity: 1; }
+.hist .axis { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--muted); }
+.hist .line { position: absolute; top: 0; bottom: 20px; width: 2px; background: var(--ink); }
+.hist .line span { position: absolute; top: -2px; left: 6px; font: 600 11px var(--mono); white-space: nowrap; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.split > div { padding: 12px 14px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); }
+.split .v { font: 700 26px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font: 500 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.id { font: 13px var(--mono); color: var(--muted); white-space: nowrap; }
+td.conf { font-family: var(--mono); text-align: right; white-space: nowrap; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover td { background: var(--surface-2); }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filters button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+.filters button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.start { padding: 28px; display: grid; gap: 16px; justify-items: start; }
+.start .big { font: 700 44px/1 var(--display); letter-spacing: -0.02em; }
+.progress { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; width: 100%; }
+.progress i { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+.opts { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 14px; }
+.opts select, .opts input { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+
+/* check tab */
+.check { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 22px; align-items: start; }
+.pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pick button { padding: 14px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface); cursor: pointer; font: 700 17px var(--display); text-align: left; display: flex; align-items: center; gap: 8px; }
+.pick button::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+.pick button:hover { border-color: currentColor; }
+.verdict { font: 600 16px var(--body); }
+.verdict.ok { color: var(--good); }
+.verdict.no { color: var(--bad); }
+
+.b0 { color: var(--b0); } .b0.bg { background: var(--b0-bg); }
+.b1 { color: var(--b1); } .b1.bg { background: var(--b1-bg); }
+.b2 { color: var(--b2); } .b2.bg { background: var(--b2-bg); }
+.b3 { color: var(--b3); } .b3.bg { background: var(--b3-bg); }
+.answer.bg p, .tile .count { color: var(--ink); }
+
+@media (max-width: 1000px) {
+  .decision, .grid2, .check { grid-template-columns: minmax(0, 1fr); }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat { border-bottom: 1px solid var(--line); }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .wrap { padding-inline: 16px; }
+  ol.criteria, .answers, .pick, .split { grid-template-columns: minmax(0, 1fr); }
+  dl.fields > div { grid-template-columns: minmax(0, 1fr) auto; }
+  dl.fields dt { grid-column: 1 / -1; }
+  .question { font-size: 26px; }
+  .edit-pair { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><b>ICP Sorter</b><span class="muted" id="subtitle">LinkedIn connections</span></div>
+    <span class="pill" id="jevpill"><span class="dot"></span><span id="jevmodel">Jev</span></span>
+    <label class="toggle" title="Names and profile links are never sent to Jev. They stay hidden unless you switch this on."><input type="checkbox" id="shownames"> Show names</label>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-decision" aria-selected="true" data-tab="decision"><span class="n">1</span>One decision</button>
+    <button role="tab" id="tab-run" aria-selected="false" data-tab="run"><span class="n">2</span>Full run</button>
+    <button role="tab" id="tab-check" aria-selected="false" data-tab="check"><span class="n">3</span>Check against my answers</button>
+  </nav>
+
+  <!-- 1. ONE DECISION -->
+  <div class="warn" id="empty" hidden style="margin-bottom:16px">No connections loaded yet. Download your LinkedIn data export, then run <span class="mono">npm run build -- path/to/Connections.csv</span> and reload this page. You can already edit the setup below.</div>
+  <section id="view-decision" class="decision">
+    <div class="panel card" id="recordcard">
+      <div class="card-head">
+        <span class="eyebrow">Input record</span>
+        <span class="spacer"></span>
+        <div class="row nav">
+          <button class="btn small" id="prev" aria-label="Previous connection">‹</button>
+          <input type="text" id="jump" aria-label="Go to connection id" placeholder="Go to #" spellcheck="false">
+          <button class="btn small" id="next" aria-label="Next connection">›</button>
+          <button class="btn small" id="random">Random</button>
+          <label class="toggle"><input type="checkbox" id="engagedonly" checked> Engaged only</label>
+        </div>
+      </div>
+      <div class="card-head">
+        <span class="id" id="recid">…</span>
+        <span class="note" id="recmeta"></span>
+      </div>
+      <div class="who" id="who" hidden></div>
+      <dl class="fields" id="fields"></dl>
+      <div class="note" id="fieldsnote">Jev receives only these fields. No name, photo or profile link.</div>
+      <div class="row">
+        <button class="btn primary" id="runone">Run this record through Jev</button>
+        <button class="btn" id="showreq" aria-expanded="false">Show exact request</button>
+      </div>
+      <div class="result" id="result" hidden aria-live="polite"></div>
+      <pre class="json" id="reqjson" hidden></pre>
+    </div>
+
+    <div class="panel setup" id="setuppanel">
+      <div id="setupview"></div>
+      <div id="setupedit" hidden></div>
+    </div>
+  </section>
+
+  <!-- 2. FULL RUN -->
+  <section id="view-run" hidden>
+    <div class="row" style="margin-bottom:14px; justify-content: space-between;">
+      <div class="row">
+        <label class="note" for="runselect">Run</label>
+        <select id="runselect" class="btn small"></select>
+      </div>
+      <button class="btn small" id="newrun">New run</button>
+    </div>
+    <div id="runbody"></div>
+  </section>
+
+  <!-- 3. CHECK -->
+  <section id="view-check" class="check" hidden>
+    <div class="panel card" id="checkcard"></div>
+    <div class="panel section" id="checkstats"></div>
+  </section>
+</div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (n) => Number(n || 0).toLocaleString('en-US');
+const pct = (x, d = 0) => (x == null ? '–' : `${(x * 100).toFixed(d)}%`);
+const usd = (x) => (x < 0.01 ? `$${x.toFixed(5)}` : `$${x.toFixed(2)}`);
+const secs = (ms) => `${(ms / 1000).toFixed(1)} s`;
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+async function api(path, opts) {
+  const r = await fetch(path, opts && opts.body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, ...opts, body: JSON.stringify(opts.body) } : opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `Request failed (${r.status})`);
+  return j;
+}
+
+const S = { meta: null, setup: null, runs: [], run: null, runSummary: null, rec: null, names: store.get('names', false), blur: store.get('blur', {}), threshold: store.get('threshold', 0.9), filter: '', page: 0, checkRec: null, tracked: false };
+const FIELD_LABELS = { job_title: 'Job title', company: 'Company', headline: 'Headline', engaged_with_my_posts: 'Engaged with my posts' };
+const fieldsOf = (state) => Object.entries(FIELD_LABELS).filter(([k]) => k in (state || {}));
+const bIndex = (setup, key) => Math.max(0, setup.buckets.findIndex((b) => b.key === key));
+const bLabel = (setup, key) => setup.buckets.find((b) => b.key === key)?.label || key || 'no answer';
+const chip = (setup, key) => key ? `<span class="chip b${bIndex(setup, key)} bg">${esc(bLabel(setup, key))}</span>` : '<span class="chip">error</span>';
+
+// ---------- tabs ----------
+function showTab(name) {
+  for (const t of ['decision', 'run', 'check']) { $(`#view-${t}`).hidden = t !== name; $(`#tab-${t}`).setAttribute('aria-selected', t === name); }
+  store.set('tab', name);
+  try { history.replaceState(null, '', `#${name}`); } catch {}
+  if (name === 'check') loadCheck(true);
+}
+document.querySelectorAll('nav.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+// ---------- setup ----------
+function renderSetup() {
+  const s = S.setup;
+  const runSetup = S.run?.setup;
+  const stale = runSetup && runSetup.version !== s.version;
+  $('#setupview').innerHTML = `
+    <div class="setup-meta">
+      <span class="eyebrow">Saved setup · version ${s.version}${s.saved_at ? ' · ' + new Date(s.saved_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>
+      <button class="btn small" id="editsetup">Edit setup</button>
+    </div>
+    ${!s.saved_at ? '<div class="warn">This is the example setup. Click Edit setup and describe your own ICP before a full run.</div>' : ''}
+    ${stale ? `<div class="warn">The selected run used setup version ${runSetup.version}. This is version ${s.version}. Open the run in Full run to see its exact definitions.</div>` : ''}
+    <div>
+      <div class="eyebrow">The question</div>
+      <p class="question">${esc(s.question)}</p>
+      <p class="context">${esc(s.context)}</p>
+    </div>
+    <div>
+      <div class="eyebrow" style="margin-bottom:10px">${s.criteria.length} criteria</div>
+      <ol class="criteria">${s.criteria.map((c) => `<li><b>${esc(c.label)}</b><span>${esc(c.description)}</span></li>`).join('')}</ol>
+    </div>
+    <div>
+      <div class="eyebrow" style="margin-bottom:10px">${s.buckets.length} possible answers</div>
+      <div class="answers" id="answers">${s.buckets.map((b, i) => `
+        <div class="answer b${i} bg" data-key="${esc(b.key)}">
+          <h3>${esc(b.label)}</h3>
+          <p>${esc(b.description)}</p>
+          <div class="next">Next step: ${esc(b.next || '')}</div>
+        </div>`).join('')}</div>
+    </div>
+    <div class="note">${esc(s.rule)}</div>`;
+  $('#editsetup').onclick = openEditor;
+}
+
+function openEditor() {
+  const s = S.setup;
+  const box = $('#setupedit');
+  box.innerHTML = `
+    <div class="edit-grid">
+      <div class="setup-meta"><h2>Edit setup</h2><span class="note">Runs keep the version they used.</span></div>
+      <label>Question<input id="e-question" value="${esc(s.question)}"></label>
+      <label>Context: who is my ideal customer?<textarea id="e-context">${esc(s.context)}</textarea></label>
+      <div class="eyebrow">Criteria</div>
+      ${s.criteria.map((c, i) => `<div class="edit-pair"><input id="e-cl-${i}" value="${esc(c.label)}" aria-label="Criterion ${i + 1} label"><textarea id="e-cd-${i}" aria-label="Criterion ${i + 1} description">${esc(c.description)}</textarea></div>`).join('')}
+      <div class="eyebrow">Answers</div>
+      ${s.buckets.map((b, i) => `<div class="edit-pair"><input id="e-bl-${i}" value="${esc(b.label)}" aria-label="Answer ${i + 1} label"><div class="edit-grid"><textarea id="e-bd-${i}" aria-label="Answer ${i + 1} description">${esc(b.description)}</textarea><input id="e-bn-${i}" value="${esc(b.next || '')}" aria-label="Answer ${i + 1} next step" placeholder="Next step"></div></div>`).join('')}
+      <label>Rule for missing information<textarea id="e-rule">${esc(s.rule)}</textarea></label>
+      <div class="row"><button class="btn primary" id="e-save">Save as version ${s.version + 1}</button><button class="btn" id="e-cancel">Cancel</button><span class="note" id="e-msg"></span></div>
+    </div>`;
+  $('#setupview').hidden = true; box.hidden = false;
+  $('#e-cancel').onclick = () => { box.hidden = true; $('#setupview').hidden = false; };
+  $('#e-save').onclick = async () => {
+    const next = {
+      question: $('#e-question').value.trim(), context: $('#e-context').value.trim(), rule: $('#e-rule').value.trim(),
+      criteria: s.criteria.map((c, i) => ({ ...c, label: $(`#e-cl-${i}`).value.trim(), description: $(`#e-cd-${i}`).value.trim() })),
+      buckets: s.buckets.map((b, i) => ({ ...b, label: $(`#e-bl-${i}`).value.trim(), description: $(`#e-bd-${i}`).value.trim(), next: $(`#e-bn-${i}`).value.trim() })),
+    };
+    try { S.setup = await api('/api/setup', { body: next }); box.hidden = true; $('#setupview').hidden = false; renderSetup(); renderRecord(); }
+    catch (e) { $('#e-msg').textContent = e.message; }
+  };
+}
+
+// ---------- one record ----------
+const recNum = (id) => Number(String(id).replace(/\D/g, ''));
+const recId = (n) => `c${String(n).padStart(5, '0')}`;
+
+async function loadRecord(id) {
+  const q = new URLSearchParams({ names: S.names ? '1' : '0', ...(S.run ? { run: S.run.id } : {}) });
+  const d = await api(`/api/record/${id}?${q}`);
+  S.rec = d.row; S.req = d.request;
+  store.set('rec', id);
+  $('#result').hidden = true;
+  document.querySelectorAll('.answer').forEach((a) => a.classList.remove('picked'));
+  renderRecord();
+}
+async function randomRecord() {
+  const engaged = $('#engagedonly').checked;
+  const total = engaged ? (await api('/api/records?engaged=1&limit=1')).total : S.meta.count;
+  const offset = Math.floor(Math.random() * total);
+  const d = await api(`/api/records?limit=1&offset=${offset}${engaged ? '&engaged=1' : ''}`);
+  if (d.rows[0]) loadRecord(d.rows[0].id);
+}
+async function step(dir) {
+  if (!S.rec) return;
+  if (!$('#engagedonly').checked) { const n = recNum(S.rec.id) + dir; if (n >= 1 && n <= S.meta.count) loadRecord(recId(n)); return; }
+  // walk to the next engaged record
+  const d = await api('/api/records?engaged=1&limit=200&offset=0');
+  const all = [d.rows];
+  for (let o = 200; o < d.total; o += 200) all.push((await api(`/api/records?engaged=1&limit=200&offset=${o}`)).rows);
+  const ids = all.flat().map((r) => r.id);
+  const i = ids.indexOf(S.rec.id);
+  const nextId = ids[(i + dir + ids.length) % ids.length];
+  if (nextId) loadRecord(nextId);
+}
+
+function renderRecord() {
+  const r = S.rec;
+  if (!r) return;
+  $('#recid').textContent = `Connection #${r.id.slice(1)}`;
+  $('#recmeta').textContent = r.connected_on ? `connected ${r.connected_on}` : '';
+  const who = $('#who');
+  who.hidden = !S.names;
+  who.innerHTML = S.names && r.name ? `${esc(r.name)} · <a href="${esc(r.url)}" target="_blank" rel="noopener">profile</a> · <span>local only, never sent to Jev</span>` : '';
+  const fields = fieldsOf(r.state);
+  $('#fieldsnote').textContent = `Jev receives only these ${fields.length} fields. No name, photo or profile link.`;
+  $('#fields').innerHTML = fields.map(([k, label]) => `
+    <div><dt>${label}</dt><dd class="${S.blur[k] ? 'blur' : ''}" id="f-${k}">${esc(r.state[k])}</dd>
+    <button class="hide" data-k="${k}" title="Blur this field for a screen recording">${S.blur[k] ? 'show' : 'blur'}</button></div>`).join('');
+  document.querySelectorAll('#fields .hide').forEach((b) => b.onclick = () => { S.blur[b.dataset.k] = !S.blur[b.dataset.k]; store.set('blur', S.blur); renderRecord(); });
+  $('#reqjson').textContent = JSON.stringify({ model: S.jev?.model, ...S.req }, null, 2);
+}
+
+function renderResult(res) {
+  const s = S.setup;
+  const i = bIndex(s, res.bucket);
+  const inRun = S.rec?.bucket ? `<div class="note">In the full run this record was ${esc(bLabel(S.run.setup, S.rec.bucket))} at ${pct(S.rec.confidence)} confidence.</div>` : '';
+  $('#result').innerHTML = `
+    <div class="eyebrow">Jev's answer</div>
+    <div class="big"><span class="bucket b${i}">${esc(bLabel(s, res.bucket))}</span><span class="conf">${pct(res.confidence)} confidence</span></div>
+    <div class="probs">${s.buckets.map((b, j) => `<div class="prob"><span>${esc(b.label)}</span><span class="bar"><i class="b${j}" style="width:${(res.probabilities[b.key] || 0) * 100}%; background: currentColor"></i></span><span class="v">${pct(res.probabilities[b.key] || 0)}</span></div>`).join('')}</div>
+    <div class="note mono">${res.ms} ms · ${usd(res.cost || 0)} · ${fmt(res.tokens)} input tokens · ${esc(res.model || '')}</div>
+    ${inRun}`;
+  $('#result').hidden = false;
+  document.querySelectorAll('.answer').forEach((a) => a.classList.toggle('picked', a.dataset.key === res.bucket));
+}
+
+$('#runone').onclick = async () => {
+  const b = $('#runone'); b.disabled = true; b.textContent = 'Asking Jev…';
+  try { renderResult(await api('/api/one', { body: { id: S.rec.id } })); }
+  catch (e) { $('#result').innerHTML = `<div class="warn">${esc(e.message)}</div>`; $('#result').hidden = false; }
+  finally { b.disabled = false; b.textContent = 'Run this record through Jev'; }
+};
+$('#showreq').onclick = () => { const p = $('#reqjson'); p.hidden = !p.hidden; $('#showreq').setAttribute('aria-expanded', !p.hidden); $('#showreq').textContent = p.hidden ? 'Show exact request' : 'Hide request'; };
+$('#prev').onclick = () => step(-1);
+$('#next').onclick = () => step(1);
+$('#random').onclick = randomRecord;
+$('#jump').addEventListener('keydown', (e) => { if (e.key === 'Enter') { const n = recNum(e.target.value); if (n) loadRecord(recId(n)).catch((err) => { e.target.value = ''; e.target.placeholder = 'not found'; }); } });
+$('#shownames').checked = S.names;
+$('#shownames').onchange = (e) => { S.names = e.target.checked; store.set('names', S.names); if (S.rec) loadRecord(S.rec.id); if (S.run) renderRows(); if (S.checkRec) loadCheck(false); };
+
+// ---------- full run ----------
+function renderRunSelect() {
+  const sel = $('#runselect');
+  sel.innerHTML = S.runs.length ? S.runs.map((r) => `<option value="${r.id}">${new Date(r.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · ${fmt(r.n)} records</option>`).join('') : '<option value="">No runs yet</option>';
+  if (S.run) sel.value = S.run.id;
+}
+$('#runselect').onchange = (e) => openRun(e.target.value);
+$('#newrun').onclick = () => renderStart();
+
+async function openRun(id) {
+  if (!id) return renderStart();
+  S.run = await api(`/api/runs/${id}`);
+  store.set('run', id);
+  S.page = 0; S.filter = '';
+  renderRunSelect(); renderRun(); renderSetup();
+  if (S.rec) loadRecord(S.rec.id);
+}
+
+function renderStart() {
+  $('#runbody').innerHTML = `
+    <div class="panel start">
+      <div class="eyebrow">Full run</div>
+      <div class="big num">${fmt(S.meta.count)} connections</div>
+      <p class="context" style="margin:0">Jev answers the same question for every connection, one call per record, using setup version ${S.setup.version}. Runtime and cost are measured, not estimated.</p>
+      <div class="opts">
+        <label>Records <select id="scope"><option value="0">All ${fmt(S.meta.count)}</option><option value="10000">Newest 10,000</option><option value="1000">Newest 1,000</option><option value="100">Newest 100</option></select></label>
+        <label>Parallel calls <input id="conc" type="number" min="1" max="600" value="300" style="width:90px"></label>
+      </div>
+      <span class="note">300 is the sweet spot. Above that, OpenRouter throttles Jev and the run slows itself down.</span>
+      <button class="btn primary" id="startrun">Run all through Jev</button>
+      <span class="note" id="startmsg"></span>
+    </div>`;
+  const label = () => { const v = Number($('#scope').value); $('#startrun').textContent = v ? `Run ${fmt(v)} through Jev` : `Run all ${fmt(S.meta.count)} through Jev`; };
+  $('#scope').onchange = label; label();
+  $('#startrun').onclick = async () => {
+    try { await api('/api/run', { body: { limit: Number($('#scope').value), concurrency: Number($('#conc').value) } }); follow(); }
+    catch (e) { $('#startmsg').textContent = e.message; }
+  };
+}
+
+function follow() {
+  const t0 = performance.now();
+  $('#runbody').innerHTML = `
+    <div class="panel start" id="live">
+      <div class="eyebrow">Running</div>
+      <div class="big num" id="lv-count">0</div>
+      <div class="progress"><i id="lv-bar" style="width:0%"></i></div>
+      <div class="opts mono num"><span id="lv-time">0.0 s</span><span id="lv-cost">$0.00000</span><span id="lv-par"></span><span id="lv-err"></span></div>
+      <button class="btn small" id="cancelrun">Cancel</button>
+    </div>
+    <div class="tiles" id="lv-tiles"></div>`;
+  $('#cancelrun').onclick = () => api('/api/run/cancel', { method: 'POST' });
+  const es = new EventSource('/api/run/stream');
+  es.addEventListener('progress', (e) => {
+    const p = JSON.parse(e.data);
+    $('#lv-count').textContent = `${fmt(p.done)} / ${fmt(p.total)}`;
+    $('#lv-bar').style.width = `${(p.done / p.total) * 100}%`;
+    $('#lv-time').textContent = secs(p.elapsed_ms);
+    $('#lv-cost').textContent = usd(p.cost);
+    $('#lv-err').textContent = p.errors ? `${p.errors} without answer` : '';
+    $('#lv-par').textContent = p.parallel ? `${p.parallel} parallel${p.throttled ? ` · throttled ${p.throttled}×` : ''}` : '';
+    $('#lv-tiles').innerHTML = tilesHtml(S.setup, p.counts, p.done || 1);
+  });
+  es.addEventListener('done', async (e) => { es.close(); const run = JSON.parse(e.data); S.runs = (await api('/api/state')).runs; openRun(run.id); });
+  es.addEventListener('error', (e) => { es.close(); if (e.data) $('#live').insertAdjacentHTML('beforeend', `<div class="warn">${esc(JSON.parse(e.data).message)}</div>`); });
+  es.addEventListener('idle', () => es.close());
+}
+
+function tilesHtml(setup, counts, total) {
+  return setup.buckets.map((b, i) => {
+    const n = counts?.[b.key] || 0;
+    return `<div class="tile b${i}"><span class="lab">${esc(b.label)}</span><span class="count">${fmt(n)}</span><span class="pct">${pct(n / total, 1)}</span><span class="next">${esc(b.next || '')}</span><span class="fill"><i style="width:${(n / total) * 100}%"></i></span></div>`;
+  }).join('');
+}
+
+function renderRun() {
+  const r = S.run;
+  const s = r.setup;
+  $('#runbody').innerHTML = `
+    <div class="panel stats">
+      <div class="stat"><span class="eyebrow">Records</span><span class="v">${fmt(r.n)}</span></div>
+      <div class="stat"><span class="eyebrow">Runtime</span><span class="v">${secs(r.runtime_ms)}</span></div>
+      <div class="stat"><span class="eyebrow">Cost</span><span class="v">${usd(r.cost_usd)}</span></div>
+      <div class="stat"><span class="eyebrow">Structured answers</span><span class="v">${fmt(r.answered)}</span>${r.errors ? `<span class="note">${fmt(r.errors)} without answer</span>` : ''}</div>
+      <div class="stat"><span class="eyebrow">Model · setup</span><span class="v small">${esc((r.model || '').replace('typesafe/', ''))}<br>setup v${s.version} · ${r.concurrency} parallel</span></div>
+    </div>
+    ${r.errors ? `<div class="warn row" style="margin-top:16px; justify-content: space-between"><span>${fmt(r.errors)} connections got no answer because OpenRouter throttled Jev. Retry only those, with the same setup.</span><button class="btn small" id="retryrun">Retry ${fmt(r.errors)} unanswered</button></div>` : ''}
+    ${r.retried ? `<div class="note" style="margin-top:8px">Includes a retry of ${fmt(r.retried)} records (${secs(r.retry_runtime_ms)} extra). Runtime above is the first pass.</div>` : ''}
+    <div class="tiles">${tilesHtml(s, r.counts, r.n)}</div>
+    <div class="grid2">
+      <div class="panel section">
+        <div><div class="eyebrow">Confidence line</div><h2 style="margin-top:4px">What moves on without a person?</h2></div>
+        <div class="hist" id="hist"></div>
+        <input type="range" id="thr" min="50" max="99" step="1" value="${Math.round(S.threshold * 100)}" aria-label="Confidence line">
+        <div class="split">
+          <div><div class="eyebrow">At or above the line</div><div class="v" id="thr-auto">…</div><div class="note">moves to the next step</div></div>
+          <div><div class="eyebrow">Below the line</div><div class="v" id="thr-review">…</div><div class="note">becomes a review task</div></div>
+        </div>
+        <div class="note">Set the line from the check in tab 3, not in advance. A structured answer for every record shows the format held. It does not show every answer is right.</div>
+        <div class="row">
+          <a class="btn small" id="exp-warm" href="#">Export Warm list</a>
+          <a class="btn small" id="exp-review" href="#">Export review tasks</a>
+          <a class="btn small" id="exp-all" href="#">Export all</a>
+        </div>
+      </div>
+      <div class="panel section">
+        <div class="row" style="justify-content: space-between">
+          <div class="eyebrow">Sample of the completed run</div>
+          <div class="filters" id="filters">
+            <button aria-pressed="${!S.filter}" data-f="">All</button>
+            ${s.buckets.map((b) => `<button aria-pressed="${S.filter === b.key}" data-f="${b.key}">${esc(b.label)}</button>`).join('')}
+          </div>
+        </div>
+        <div class="tablewrap"><table><thead><tr><th>#</th><th class="namecol">Name</th><th>Role</th><th class="engcol">Engaged</th><th>Answer</th><th style="text-align:right">Conf.</th></tr></thead><tbody id="rows"></tbody></table></div>
+        <div class="row" style="justify-content: space-between"><span class="note" id="rowinfo"></span><span class="row"><button class="btn small" id="pgprev">‹ Prev</button><button class="btn small" id="pgnext">Next ›</button></span></div>
+      </div>
+    </div>
+    <details class="panel section" style="margin-top:16px"><summary class="eyebrow" style="cursor:pointer">Setup used for this run (version ${s.version})</summary>
+      <p class="question" style="font-size:24px">${esc(s.question)}</p>
+      <ol class="criteria">${s.criteria.map((c) => `<li><b>${esc(c.label)}</b><span>${esc(c.description)}</span></li>`).join('')}</ol>
+      <div class="answers">${s.buckets.map((b, i) => `<div class="answer b${i} bg"><h3>${esc(b.label)}</h3><p>${esc(b.description)}</p><div class="next">Next step: ${esc(b.next || '')}</div></div>`).join('')}</div>
+    </details>`;
+  if ($('#retryrun')) $('#retryrun').onclick = async () => { try { await api(`/api/runs/${r.id}/retry`, { method: 'POST' }); follow(); } catch (e) { $('#retryrun').textContent = e.message; } };
+  document.querySelectorAll('#filters button').forEach((b) => b.onclick = () => { S.filter = b.dataset.f; S.page = 0; document.querySelectorAll('#filters button').forEach((x) => x.setAttribute('aria-pressed', x === b)); renderRows(); });
+  $('#pgprev').onclick = () => { if (S.page > 0) { S.page--; renderRows(); } };
+  $('#pgnext').onclick = () => { S.page++; renderRows(); };
+  $('#thr').oninput = (e) => { S.threshold = Number(e.target.value) / 100; store.set('threshold', S.threshold); renderThreshold(); };
+  renderThreshold(); renderRows();
+}
+
+let thrTimer;
+function renderThreshold() {
+  const r = S.run, t = S.threshold;
+  const hist = r.confidence_hist, max = Math.max(...hist, 1);
+  const left = Math.min(100, t * 100);
+  $('#hist').innerHTML = hist.map((n, i) => `<i class="${i / 20 >= t - 1e-9 ? 'on' : ''}" style="height:${Math.max(1, (n / max) * 100)}%" title="${i * 5}-${i * 5 + 5}%: ${fmt(n)}"></i>`).join('')
+    + `<div class="line" style="left:calc(${left}% - 1px)"><span>${Math.round(t * 100)}%</span></div><div class="axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>`;
+  const q = new URLSearchParams({ t, names: S.names ? '1' : '0' });
+  $('#exp-warm').href = `/api/runs/${r.id}/export.csv?bucket=${r.setup.buckets[0].key}&${q}`;
+  $('#exp-review').href = `/api/runs/${r.id}/export.csv?review=1&${q}`;
+  $('#exp-all').href = `/api/runs/${r.id}/export.csv?${q}`;
+  clearTimeout(thrTimer);
+  thrTimer = setTimeout(async () => {
+    const d = await api(`/api/runs/${r.id}/threshold?t=${t}`);
+    $('#thr-auto').textContent = fmt(d.auto);
+    $('#thr-review').textContent = fmt(d.review);
+  }, 60);
+}
+
+async function renderRows() {
+  const r = S.run, s = r.setup, per = 12;
+  const q = new URLSearchParams({ offset: S.page * per, limit: per, names: S.names ? '1' : '0', ...(S.filter ? { bucket: S.filter } : {}) });
+  const d = await api(`/api/runs/${r.id}/rows?${q}`);
+  if (!d.rows.length && S.page > 0) { S.page--; return renderRows(); }
+  document.querySelectorAll('.namecol').forEach((th) => th.hidden = !S.names);
+  document.querySelectorAll('.engcol').forEach((th) => th.hidden = !S.tracked);
+  $('#rows').innerHTML = d.rows.map((x) => `
+    <tr class="clickable" data-id="${x.id}" title="Open in One decision">
+      <td class="id">${x.id.slice(1)}</td>
+      ${S.names ? `<td>${esc(x.name || '')}</td>` : ''}
+      <td class="role">${x.state.job_title !== 'unknown' ? `${esc(x.state.job_title)}<span class="sub">${esc(x.state.company)}</span>` : `${esc((x.state.headline || 'unknown').slice(0, 90))}<span class="sub">${x.state.headline ? 'from headline' : ''}</span>`}</td>
+      ${S.tracked ? `<td>${x.engaged ? 'Yes' : '<span class="muted">No</span>'}</td>` : ''}
+      <td>${chip(s, x.bucket)}</td><td class="conf">${pct(x.confidence)}</td>
+    </tr>`).join('');
+  $('#rowinfo').textContent = `${fmt(d.offset + 1)}–${fmt(d.offset + d.rows.length)} of ${fmt(d.total)}`;
+  document.querySelectorAll('#rows tr').forEach((tr) => tr.onclick = () => { loadRecord(tr.dataset.id); showTab('decision'); window.scrollTo({ top: 0 }); });
+}
+
+// ---------- check ----------
+async function loadCheck(fresh) {
+  if (!S.run) { $('#checkcard').innerHTML = '<div class="warn">Do a full run first. Then check a sample of its answers against your own.</div>'; $('#checkstats').innerHTML = ''; return; }
+  const q = new URLSearchParams({ next: fresh || !S.checkRec ? '1' : '0', names: S.names ? '1' : '0' });
+  const d = await api(`/api/runs/${S.run.id}/check?${q}`);
+  if (fresh || !S.checkRec) S.checkRec = d.next;
+  renderCheck(null); renderCheckStats(d.stats);
+}
+function renderCheck(mine) {
+  const r = S.checkRec, s = S.run.setup;
+  if (!r) { $('#checkcard').innerHTML = '<div class="note">Every answer in this run has your label.</div>'; return; }
+  const revealed = mine != null;
+  $('#checkcard').innerHTML = `
+    <div class="card-head"><span class="eyebrow">Your answer first. Then see Jev's.</span><span class="spacer"></span><span class="id mono">#${r.id.slice(1)}</span></div>
+    ${S.names && r.name ? `<div class="who">${esc(r.name)} · <a href="${esc(r.url)}" target="_blank" rel="noopener">profile</a></div>` : ''}
+    <dl class="fields">${fieldsOf(r.state).map(([k, l]) => `<div><dt>${l}</dt><dd>${esc(r.state[k])}</dd><span></span></div>`).join('')}</dl>
+    <div class="pick">${s.buckets.map((b, i) => `<button class="b${i}" data-k="${b.key}" ${revealed ? 'disabled' : ''}>${esc(b.label)}</button>`).join('')}</div>
+    ${revealed ? `<div class="result"><div class="verdict ${mine === r.bucket ? 'ok' : 'no'}">${mine === r.bucket ? 'Match' : 'No match'}</div>
+      <div class="note">You: ${chip(s, mine)} &nbsp; Jev: ${chip(s, r.bucket)} at ${pct(r.confidence)} confidence</div></div>` : ''}
+    <div class="row"><button class="btn ${revealed ? 'primary' : ''}" id="checknext">${revealed ? 'Next record' : 'Skip'}</button></div>`;
+  document.querySelectorAll('.pick button').forEach((b) => b.onclick = async () => {
+    const d = await api(`/api/runs/${S.run.id}/check`, { body: { id: r.id, bucket: b.dataset.k } });
+    renderCheck(b.dataset.k); renderCheckStats(d.stats);
+  });
+  $('#checknext').onclick = () => loadCheck(true);
+}
+function renderCheckStats(st) {
+  const sug = st.suggestion;
+  $('#checkstats').innerHTML = `
+    <div><div class="eyebrow">Jev vs. you</div><h2 style="margin-top:4px">${st.labeled ? `${pct(st.rate)} match on ${fmt(st.labeled)} records` : 'No records checked yet'}</h2></div>
+    <p class="note" style="margin:0">Label records where you know the right answer. The tool rotates through all answers so every bucket gets checked.</p>
+    <div class="tablewrap"><table><thead><tr><th>Jev confidence</th><th style="text-align:right">Checked</th><th style="text-align:right">Match</th></tr></thead><tbody>
+      ${st.bands.map((b) => `<tr><td>${b.name}</td><td class="conf">${fmt(b.n)}</td><td class="conf">${b.n ? pct(b.match / b.n) : '–'}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${sug ? `<div class="result"><div class="eyebrow">Suggested confidence line</div><div class="big"><span class="bucket">${Math.round(sug.threshold * 100)}%</span></div>
+      <div class="note">All ${fmt(sug.checked_above)} checked answers at or above ${Math.round(sug.threshold * 100)}% matched yours. ${pct(sug.run_share)} of the run is at or above this line. Check more records before you trust it.</div>
+      <button class="btn small" id="usethr">Use ${Math.round(sug.threshold * 100)}% in Full run</button></div>` : ''}`;
+  if (sug) $('#usethr').onclick = () => { S.threshold = sug.threshold; store.set('threshold', S.threshold); showTab('run'); renderRun(); };
+}
+
+// ---------- boot ----------
+(async function boot() {
+  const st = await api('/api/state');
+  Object.assign(S, { meta: st.meta, setup: st.setup, runs: st.runs, jev: st.jev });
+  S.tracked = Boolean(st.meta.engagement_tracked);
+  $('#subtitle').textContent = `${fmt(st.meta.count)} LinkedIn connections` + (S.tracked ? ` · ${fmt(st.meta.engaged_last_days)} engaged in ${st.meta.engagement_window_days} days` : '');
+  $('#engagedonly').checked = S.tracked && st.meta.engaged_last_days > 0;
+  $('#engagedonly').closest('label').hidden = !S.tracked;
+  $('#empty').hidden = st.meta.count > 0;
+  $('#jevmodel').textContent = st.jev.key ? `Jev via ${st.jev.via}` : 'No API key';
+  $('#jevpill').classList.toggle('off', !st.jev.key);
+  const runId = store.get('run', null);
+  const pickRun = st.runs.find((r) => r.id === runId) || st.runs[0];
+  if (pickRun) await openRun(pickRun.id); else { renderRunSelect(); renderStart(); }
+  renderSetup();
+  const recId0 = store.get('rec', null);
+  if (st.meta.count) { try { if (recId0) await loadRecord(recId0); else await randomRecord(); } catch { await randomRecord(); } }
+  else { $('#recordcard').hidden = true; $('#view-decision').style.gridTemplateColumns = 'minmax(0, 1fr)'; }
+  if (st.job) { showTab('run'); follow(); } else showTab(['decision', 'run', 'check'].includes(location.hash.slice(1)) ? location.hash.slice(1) : store.get('tab', 'decision'));
+})().catch((e) => { document.querySelector('.wrap').insertAdjacentHTML('beforeend', `<div class="warn">${esc(e.message)}</div>`); });
+</script>
+</body>
+</html>
