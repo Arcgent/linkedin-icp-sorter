@@ -189,6 +189,25 @@ tr.clickable:hover td { background: var(--surface-2); }
 .b3 { color: var(--b3); } .b3.bg { background: var(--b3-bg); }
 .answer.bg p, .tile .count { color: var(--ink); }
 
+.tile.clickable { cursor: pointer; }
+.tile.clickable[aria-pressed="true"] { box-shadow: 0 0 0 2px currentColor; }
+
+/* reach out tab */
+.reach-start { padding: 24px 26px; display: grid; gap: 14px; }
+.reach-start h2 { font-size: 26px; }
+.rlist { display: grid; gap: 12px; margin-top: 16px; }
+.rcard { padding: 16px 18px; display: grid; gap: 10px; }
+.rhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.rhead .nm { font: 700 18px/1.2 var(--display); }
+.rhead .rl { color: var(--muted); }
+.rhead .spacer { margin-left: auto; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 13px; border: 1px solid var(--line); background: var(--surface-2); }
+.badge.hot { border-color: var(--b0); color: var(--b0); background: var(--b0-bg); font-weight: 600; }
+.lastpost { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+textarea.opener { width: 100%; min-height: 76px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); font-size: 15px; line-height: 1.45; resize: vertical; }
+.chars { font: 12px var(--mono); color: var(--muted); }
+
 @media (max-width: 1000px) {
   .decision, .grid2, .check { grid-template-columns: minmax(0, 1fr); }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -218,6 +237,7 @@ tr.clickable:hover td { background: var(--surface-2); }
     <button role="tab" id="tab-decision" aria-selected="true" data-tab="decision"><span class="n">1</span>One decision</button>
     <button role="tab" id="tab-run" aria-selected="false" data-tab="run"><span class="n">2</span>Full run</button>
     <button role="tab" id="tab-check" aria-selected="false" data-tab="check"><span class="n">3</span>Check against my answers</button>
+    <button role="tab" id="tab-reach" aria-selected="false" data-tab="reach"><span class="n">4</span>Reach out</button>
   </nav>
 
   <!-- 1. ONE DECISION -->
@@ -273,6 +293,11 @@ tr.clickable:hover td { background: var(--surface-2); }
     <div class="panel card" id="checkcard"></div>
     <div class="panel section" id="checkstats"></div>
   </section>
+
+  <!-- 4. REACH OUT -->
+  <section id="view-reach" hidden>
+    <div id="reachbody"></div>
+  </section>
 </div>
 
 <script>
@@ -299,10 +324,11 @@ const chip = (setup, key) => key ? `<span class="chip b${bIndex(setup, key)} bg"
 
 // ---------- tabs ----------
 function showTab(name) {
-  for (const t of ['decision', 'run', 'check']) { $(`#view-${t}`).hidden = t !== name; $(`#tab-${t}`).setAttribute('aria-selected', t === name); }
+  for (const t of ['decision', 'run', 'check', 'reach']) { $(`#view-${t}`).hidden = t !== name; $(`#tab-${t}`).setAttribute('aria-selected', t === name); }
   store.set('tab', name);
   try { history.replaceState(null, '', `#${name}`); } catch {}
   if (name === 'check') loadCheck(true);
+  if (name === 'reach' && !S.reachLive) loadReach();
 }
 document.querySelectorAll('nav.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
@@ -444,7 +470,7 @@ $('#next').onclick = () => step(1);
 $('#random').onclick = randomRecord;
 $('#jump').addEventListener('keydown', (e) => { if (e.key === 'Enter') { const n = recNum(e.target.value); if (n) loadRecord(recId(n)).catch((err) => { e.target.value = ''; e.target.placeholder = 'not found'; }); } });
 $('#shownames').checked = S.names;
-$('#shownames').onchange = (e) => { S.names = e.target.checked; store.set('names', S.names); if (S.rec) loadRecord(S.rec.id); if (S.run) renderRows(); if (S.checkRec) loadCheck(false); };
+$('#shownames').onchange = (e) => { S.names = e.target.checked; store.set('names', S.names); if (S.rec) loadRecord(S.rec.id); if (S.run) renderRows(); if (S.checkRec) loadCheck(false); if (S.reach) loadReach(); };
 
 // ---------- full run ----------
 function renderRunSelect() {
@@ -462,6 +488,8 @@ async function openRun(id) {
   S.page = 0; S.filter = '';
   renderRunSelect(); renderRun(); renderSetup();
   if (S.rec) loadRecord(S.rec.id);
+  S.reachPage = 0;
+  if (!$('#view-reach').hidden && !S.reachLive) loadReach();
 }
 
 function renderStart() {
@@ -509,7 +537,7 @@ function follow() {
     $('#lv-par').textContent = p.parallel ? `${p.parallel} parallel${p.throttled ? ` · throttled ${p.throttled}×` : ''}` : '';
     $('#lv-tiles').innerHTML = tilesHtml(S.setup, p.counts, p.done || 1);
   });
-  es.addEventListener('done', async (e) => { es.close(); const run = JSON.parse(e.data); S.runs = (await api('/api/state')).runs; openRun(run.id); });
+  es.addEventListener('done', async (e) => { es.close(); const run = JSON.parse(e.data); if (run.kind && run.kind !== 'run') return; S.runs = (await api('/api/state')).runs; openRun(run.id); });
   es.addEventListener('error', (e) => { es.close(); if (e.data) $('#live').insertAdjacentHTML('beforeend', `<div class="warn">${esc(JSON.parse(e.data).message)}</div>`); });
   es.addEventListener('idle', () => es.close());
 }
@@ -654,10 +682,159 @@ function renderCheckStats(st) {
   if (sug) $('#usethr').onclick = () => { S.threshold = sug.threshold; store.set('threshold', S.threshold); showTab('run'); renderRun(); };
 }
 
+// ---------- reach out ----------
+const WHY = { now: { label: 'Now', cls: 'b0' }, soon: { label: 'Soon', cls: 'b1' }, later: { label: 'Later', cls: 'b3' }, unchecked: { label: 'Not checked', cls: 'b3' }, error: { label: 'Could not check', cls: 'b3' } };
+const PROVIDERS = {
+  unipile: 'Signals via Unipile: your own LinkedIn account. About 8 seconds per person. Keep it to 100-150 people a day; people checked in the last 14 days are skipped.',
+  apify: 'Signals via Apify: no LinkedIn login, paid per result (about $0.01 per person).',
+  sample: 'Sample signals: the sample connections come with made-up signals, so you can try this step without an account.',
+};
+S.reachFilter = ''; S.reachPage = 0; S.reachMaybe = store.get('reachMaybe', false); S.reachLive = false;
+
+async function loadReach() {
+  if (!S.run) { $('#reachbody').innerHTML = '<div class="warn">Do a full run first (tab 2). Step 4 works on its Warm list.</div>'; return; }
+  const q = new URLSearchParams({ names: S.names ? '1' : '0', maybe: S.reachMaybe ? '1' : '0', offset: S.reachPage * 20, limit: 20, ...(S.reachFilter ? { filter: S.reachFilter } : {}) });
+  S.reach = await api(`/api/reachout/${S.run.id}?${q}`);
+  renderReach();
+}
+
+function reachStartHtml(d) {
+  const sp = S.signals || {};
+  const n = d.total_targets;
+  return `
+    <div class="panel reach-start">
+      <div class="eyebrow">Step 4 · Reach out</div>
+      <h2>Who to message this week, and what to say first.</h2>
+      <p class="context" style="margin:0">For the ${esc(bLabel(S.run.setup, S.run.bucket_keys[0]))} list of this run: checks each person's current role, real company size and location, recent posts and open jobs. Jev then answers <i>Is now a good moment to reach out?</i> with Now, Soon or Later, and Claude drafts a short opener for the people you pick. Nothing is sent. You copy the message and send it yourself.</p>
+      ${sp.provider ? `<div class="note">${esc(PROVIDERS[sp.provider])}</div>` : '<div class="warn">No signal provider set. Add UNIPILE_DSN, UNIPILE_API_KEY and UNIPILE_ACCOUNT_ID, or APIFY_TOKEN, to .env and restart. See the README.</div>'}
+      <div class="opts">
+        <label>People <select id="rscope"><option value="0">All ${fmt(n)}</option>${[25, 100].filter((x) => x < n).map((x) => `<option value="${x}">Newest ${x}</option>`).join('')}</select></label>
+        <label class="toggle"><input type="checkbox" id="rmaybe" ${S.reachMaybe ? 'checked' : ''}> Include ${esc(bLabel(S.run.setup, S.run.bucket_keys[1]))}</label>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="rstart" ${sp.provider ? '' : 'disabled'}>Find signals</button>
+        ${d.last ? `<span class="note">Last check: ${fmt(d.last.n)} people · ${secs(d.last.runtime_ms)} · ${usd(d.last.cost_usd || 0)} for Jev · via ${esc(d.last.provider)}</span>` : ''}
+      </div>
+      <span class="note" id="rmsg"></span>
+    </div>`;
+}
+
+function reachTilesHtml(c) {
+  return `<div class="tiles">${['now', 'soon', 'later', 'unchecked'].map((k) => {
+    const n = c[k] || 0, extra = k === 'unchecked' && c.error ? ` · ${fmt(c.error)} could not be checked` : '';
+    return `<div class="tile ${WHY[k].cls} clickable" role="button" tabindex="0" data-f="${k}" aria-pressed="${S.reachFilter === k}"><span class="lab">${WHY[k].label}</span><span class="count">${fmt(n)}</span><span class="next">${k === 'now' ? 'Message these first' : k === 'soon' ? 'Light touch later' : k === 'later' ? 'No reason to talk yet' : 'No signals yet' + extra}</span></div>`;
+  }).join('')}</div>`;
+}
+
+function rcardHtml(x) {
+  const w = x.why ? WHY[x.why.answer] || WHY.unchecked : x.error ? WHY.error : WHY.unchecked;
+  const name = S.names && x.name ? esc(x.name) : `#${esc(x.id.slice(1))}`;
+  const o = x.opener;
+  return `
+    <div class="panel rcard" data-id="${x.id}">
+      <div class="rhead">
+        <span class="nm">${name}</span><span class="rl">${esc(x.title || '')}${x.company ? ' · ' + esc(x.company) : ''}</span>
+        <span class="spacer"></span>
+        ${S.names && x.url ? `<a class="btn small" href="${esc(x.url)}" target="_blank" rel="noopener">Open profile</a>` : ''}
+        <span class="chip ${w.cls} bg">${w.label}${x.why?.confidence != null ? ` · ${pct(x.why.confidence)}` : ''}</span>
+      </div>
+      ${x.facts.length ? `<div class="badges">${x.facts.map((f) => `<span class="badge ${f.hot ? 'hot' : ''}">${esc(f.text)}</span>`).join('')}</div>` : ''}
+      ${x.error ? `<div class="note">${esc(x.error)}</div>` : ''}
+      ${x.last_post ? `<div class="lastpost" title="${esc(x.last_post)}">Last post: ${esc(x.last_post)}</div>` : ''}
+      ${o?.text ? `<textarea class="opener" aria-label="Opener">${esc(o.text)}</textarea>
+        <div class="row"><button class="btn small primary" data-act="copy">Copy</button><button class="btn small" data-act="redraft">Draft again</button><span class="chars"></span><span class="note">${o.edited ? 'edited · saved' : esc((o.model || '').replace('anthropic/', ''))}</span></div>`
+        : x.facts.length || x.why ? `<div class="row"><button class="btn small" data-act="draft">Draft opener</button>${o?.error ? `<span class="note">${esc(o.error)}</span>` : ''}</div>` : ''}
+    </div>`;
+}
+
+function renderReach() {
+  const d = S.reach;
+  const nowNoOpener = d.counts.now;
+  $('#reachbody').innerHTML = `
+    ${reachStartHtml(d)}
+    ${reachTilesHtml(d.counts)}
+    <div class="row" style="margin-top:16px; justify-content: space-between">
+      <div class="row">
+        <button class="btn small" id="rdraftall" ${d.counts.now ? '' : 'disabled'}>Draft openers for all Now (${fmt(nowNoOpener)})</button>
+        <a class="btn small" href="/api/reachout/${S.run.id}/export.csv?maybe=${S.reachMaybe ? 1 : 0}">Export CSV</a>
+      </div>
+      <span class="note">${S.reachFilter ? `Showing ${WHY[S.reachFilter].label}. ` : ''}${fmt(d.total)} people${d.total ? ` · ${fmt(d.offset + 1)}–${fmt(d.offset + d.rows.length)}` : ''}</span>
+    </div>
+    <div class="rlist">${d.rows.map(rcardHtml).join('') || '<div class="note">Nobody here yet.</div>'}</div>
+    ${d.total > 20 ? `<div class="row" style="margin-top:12px; justify-content: flex-end"><button class="btn small" id="rprev">‹ Prev</button><button class="btn small" id="rnext">Next ›</button></div>` : ''}`;
+
+  $('#rmaybe').onchange = (e) => { S.reachMaybe = e.target.checked; store.set('reachMaybe', S.reachMaybe); S.reachPage = 0; loadReach(); };
+  $('#rstart').onclick = async () => {
+    try { await api(`/api/reachout/${S.run.id}/signals`, { body: { limit: Number($('#rscope').value), include_maybe: S.reachMaybe } }); followReach(); }
+    catch (e) { $('#rmsg').textContent = e.message; }
+  };
+  $('#rdraftall').onclick = async () => {
+    try { await api(`/api/reachout/${S.run.id}/openers`, { body: { which: 'now' } }); followReach(); }
+    catch (e) { $('#rmsg').textContent = e.message; }
+  };
+  document.querySelectorAll('#reachbody .tile.clickable').forEach((t) => {
+    const go = () => { S.reachFilter = S.reachFilter === t.dataset.f ? '' : t.dataset.f; S.reachPage = 0; loadReach(); };
+    t.onclick = go; t.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
+  });
+  if ($('#rprev')) { $('#rprev').onclick = () => { if (S.reachPage > 0) { S.reachPage--; loadReach(); } }; $('#rnext').onclick = () => { if ((S.reachPage + 1) * 20 < d.total) { S.reachPage++; loadReach(); } }; }
+  document.querySelectorAll('.rcard').forEach((card) => {
+    const id = card.dataset.id;
+    const ta = card.querySelector('textarea.opener');
+    const count = card.querySelector('.chars');
+    if (ta) {
+      const upd = () => { count.textContent = `${ta.value.length} chars`; };
+      upd();
+      ta.oninput = upd;
+      ta.onchange = () => api(`/api/reachout/${S.run.id}/save`, { body: { id, text: ta.value } }).catch(() => {});
+    }
+    card.querySelectorAll('[data-act]').forEach((b) => b.onclick = async () => {
+      if (b.dataset.act === 'copy') {
+        try { await navigator.clipboard.writeText(ta.value); } catch { ta.select(); document.execCommand('copy'); }
+        b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 1500);
+        return;
+      }
+      b.disabled = true; b.textContent = 'Drafting…';
+      try { await api(`/api/reachout/${S.run.id}/openers`, { body: { ids: [id] } }); await loadReach(); }
+      catch (e) { b.disabled = false; b.textContent = 'Draft opener'; card.insertAdjacentHTML('beforeend', `<div class="warn">${esc(e.message)}</div>`); }
+    });
+  });
+}
+
+function followReach() {
+  S.reachLive = true;
+  $('#reachbody').innerHTML = `
+    <div class="panel start" id="rlive">
+      <div class="eyebrow" id="rl-what">Working</div>
+      <div class="big num" id="rl-count">0</div>
+      <div class="progress"><i id="rl-bar" style="width:0%"></i></div>
+      <div class="opts mono num"><span id="rl-time">0.0 s</span><span id="rl-cost"></span><span id="rl-err"></span><span id="rl-status"></span></div>
+      <button class="btn small" id="rcancel">Cancel</button>
+    </div>
+    <div id="rl-tiles"></div>`;
+  $('#rcancel').onclick = () => api('/api/run/cancel', { method: 'POST' });
+  const es = new EventSource('/api/run/stream');
+  es.addEventListener('progress', (e) => {
+    const p = JSON.parse(e.data);
+    if (p.kind === 'run') return;
+    $('#rl-what').textContent = p.kind === 'openers' ? 'Drafting openers' : 'Finding signals and asking Jev';
+    $('#rl-count').textContent = `${fmt(p.done)} / ${fmt(p.total)}`;
+    $('#rl-bar').style.width = `${p.total ? (p.done / p.total) * 100 : 0}%`;
+    $('#rl-time').textContent = secs(p.elapsed_ms);
+    $('#rl-cost').textContent = p.cost ? usd(p.cost) : '';
+    $('#rl-err').textContent = p.errors ? `${p.errors} could not be checked` : '';
+    $('#rl-status').textContent = p.kind === 'signals' && p.fetched != null ? `${fmt(p.fetched)} looked up${p.status ? ' · ' + p.status : ''}` : '';
+    if (p.counts) $('#rl-tiles').innerHTML = reachTilesHtml(p.counts);
+  });
+  const end = () => { es.close(); S.reachLive = false; loadReach(); };
+  es.addEventListener('done', end);
+  es.addEventListener('error', (e) => { if (e.data) { es.close(); S.reachLive = false; $('#rlive').insertAdjacentHTML('beforeend', `<div class="warn">${esc(JSON.parse(e.data).message)}</div><button class="btn small" onclick="loadReach()">Back</button>`); } else end(); });
+  es.addEventListener('idle', end);
+}
+
 // ---------- boot ----------
 (async function boot() {
   const st = await api('/api/state');
-  Object.assign(S, { meta: st.meta, setup: st.setup, runs: st.runs, jev: st.jev });
+  Object.assign(S, { meta: st.meta, setup: st.setup, runs: st.runs, jev: st.jev, signals: st.signals });
   S.tracked = Boolean(st.meta.engagement_tracked);
   $('#subtitle').textContent = `${fmt(st.meta.count)} LinkedIn connections` + (S.tracked ? ` · ${fmt(st.meta.engaged_last_days)} engaged in ${st.meta.engagement_window_days} days` : '');
   $('#engagedonly').checked = S.tracked && st.meta.engaged_last_days > 0;
@@ -672,7 +849,9 @@ function renderCheckStats(st) {
   const recId0 = store.get('rec', null);
   if (st.meta.count) { try { if (recId0) await loadRecord(recId0); else await randomRecord(); } catch { await randomRecord(); } }
   else { $('#recordcard').hidden = true; $('#view-decision').style.gridTemplateColumns = 'minmax(0, 1fr)'; }
-  if (st.job) { showTab('run'); follow(); } else showTab(['decision', 'run', 'check'].includes(location.hash.slice(1)) ? location.hash.slice(1) : store.get('tab', 'decision'));
+  if (st.job && st.job.data?.kind && st.job.data.kind !== 'run') { showTab('reach'); followReach(); }
+  else if (st.job) { showTab('run'); follow(); }
+  else showTab(['decision', 'run', 'check', 'reach'].includes(location.hash.slice(1)) ? location.hash.slice(1) : store.get('tab', 'decision'));
 })().catch((e) => { document.querySelector('.wrap').insertAdjacentHTML('beforeend', `<div class="warn">${esc(e.message)}</div>`); });
 </script>
 </body>

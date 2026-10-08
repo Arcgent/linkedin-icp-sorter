@@ -1,6 +1,8 @@
 # LinkedIn ICP Sorter
 
-Sort every LinkedIn connection into four buckets: **Warm · Maybe warm · Cold · Not relevant**.
+Sort every LinkedIn connection into four buckets: **Warm · Maybe warm · Cold · Not relevant**. Then find out who on your Warm list has a reason to talk now, and get a first message you can send.
+
+**New in v2: step 4, Reach out.** For every Warm connection the tool checks the current role and its start date, the real company size and location, recent LinkedIn posts and open jobs. Jev answers *"Is now a good moment to reach out?"* with Now, Soon or Later. Claude drafts a short opener for the people you pick: one question about their work, without a pitch or a link. Nothing is ever sent. You read it, change it and send it yourself.
 
 You describe your ideal customer once. Jev by TypeSafe (through OpenRouter) then answers one question for each connection: *"Does this person fit my ICP?"*. That's one API call per connection, and hundreds run in parallel.
 
@@ -34,6 +36,9 @@ Then:
 3. **Run everything** in tab 2. Start with the newest 100 to check the setup, then run all.
 4. **Check the answers** in tab 3. Label records yourself and compare them with Jev's. This tells you which confidence line you can trust.
 5. **Export** the Warm list, the review tasks or everything as CSV.
+6. **Reach out** in tab 4. Click *Find signals*, then *Draft openers for all Now*. Copy a message, change what you want and send it on LinkedIn yourself.
+
+Trying it with the sample file? Tab 4 then uses made-up signals from `examples/signals.sample.json`, so you can see the whole flow without a Unipile or Apify account.
 
 ## What Jev sees
 
@@ -62,6 +67,43 @@ Location and company size aren't in the export. Jev judges them from the job tit
 - 300 parallel calls is the sweet spot. Above that, OpenRouter throttles (429) and the runner automatically lowers the number of parallel calls, then climbs back up.
 - One request per connection on purpose. Putting many connections in one request was 4x faster and half the price, but only 78–84% of those answers matched the one-per-request answers.
 
+## Step 4: Reach out
+
+Step 4 works on the Warm list of a full run (tick *Include Maybe warm* to add those). Per person it collects:
+
+| Signal | Why it matters |
+|---|---|
+| New in role (6 months or less) | New leaders change how things run, and they are open to it |
+| Open jobs at their company | Growth, or work that piles up |
+| Posted on LinkedIn in the last 30 days | They are around to reply, and the post gives you something real to refer to |
+| Company size and location from LinkedIn | Step 1 had to guess these from the job title. Now they are checked |
+
+Jev then answers one question per person, *"Is now a good moment to reach out?"*, using your ICP description from tab 1. The answers are **Now** (a clear trigger and the company still fits), **Soon** (fits, no trigger yet) and **Later** (no trigger, or the checked data shows they don't fit after all).
+
+For the people you pick, Claude (through OpenRouter, same key) writes an opener of at most 300 characters: one reason to talk now, one question about their work. No pitch, no link, no meeting request. It writes in Dutch for Dutch and Flemish profiles and in English otherwise. You can edit every message in the app; edits are saved.
+
+### Where the signals come from
+
+Pick one. The app uses whichever keys you set (Unipile wins if both are set; force one with `SIGNALS_PROVIDER`).
+
+- **Unipile** (`UNIPILE_DSN`, `UNIPILE_API_KEY`, `UNIPILE_ACCOUNT_ID`): reads LinkedIn through your own connected account. Four reads per person (profile, company, posts, jobs), about 8 seconds per person. It asks LinkedIn not to send a profile-view notification. Because it is your own account, keep it to 100-150 people a day. People checked in the last 14 days are skipped, so you can spread a long list over a few days.
+- **Apify** (`APIFY_TOKEN`): no LinkedIn login. It runs four actors in batches: `harvestapi/linkedin-profile-scraper`, `harvestapi/linkedin-company`, `harvestapi/linkedin-profile-posts` and `curious_coder/linkedin-jobs-scraper`. You pay Apify per result, roughly $0.01-0.02 per person at their current prices. Apify's free plan includes monthly credit.
+
+### What gets sent where in step 4
+
+Step 1 never sends names or profile links. Step 4 has to, because it looks people up:
+
+- **Unipile or Apify** receive the profile URLs of the people on your Warm list (and Maybe warm if you include it). Nobody else from your network.
+- **Jev** receives the role, company and the checked facts (months in role, company size and location, open job titles, the first 280 characters of their latest post). No name, no profile link.
+- **Claude** receives the first name, headline, role, company and the same facts, only for the people you draft an opener for.
+- Everything is cached locally in `data/signals.json` and `data/reachout.json`.
+
+### Speed and cost of step 4
+
+- Unipile: about 8 seconds per person (measured: 5 people in 40 seconds). No cost per call beyond your Unipile plan.
+- Jev: about $0.00004 per person.
+- Claude opener (Sonnet 5.5): about $0.002-0.005 per opener, depending on the length of their latest post.
+
 ## Optional: engagement with your posts
 
 Engagement makes a borderline fit warmer. The ICP Sorter can count who reacted to or commented on your own posts in the last 90 days. This needs a [Unipile](https://www.unipile.com) account with your LinkedIn connected (set `UNIPILE_*` in `.env`):
@@ -80,6 +122,10 @@ npm run one -- c00042                  # one record: bucket, confidence, exact r
 npm run run                            # full run, saved to data/runs/
 npm run run -- --limit 1000            # newest 1,000
 npm run bench -- --n 2000              # speed/cost test on synthetic records, no real data
+npm run signals                        # step 4: signals + Jev's Now/Soon/Later for the Warm list of the latest run
+npm run signals -- --limit 25 --maybe  # newest 25 people, Maybe warm included
+npm run openers                        # draft openers for everyone on Now (nothing is sent)
+npm run openers -- --which soon        # or for Soon
 ```
 
 ## Configuration (`.env`)
@@ -90,7 +136,12 @@ npm run bench -- --n 2000              # speed/cost test on synthetic records, n
 | `JEV_MODEL` | `~typesafe/jev-latest` | pin a specific Jev version |
 | `JEV_DIRECT` + `TYPESAFE_API_KEY` | off | call TypeSafe directly instead of OpenRouter |
 | `PORT` | `3161` | local app port |
-| `UNIPILE_DSN`, `UNIPILE_API_KEY`, `UNIPILE_ACCOUNT_ID` | – | only for `npm run engagement` |
+| `UNIPILE_DSN`, `UNIPILE_API_KEY`, `UNIPILE_ACCOUNT_ID` | – | step 4 signals, and `npm run engagement` |
+| `APIFY_TOKEN` | – | step 4 signals without a LinkedIn login |
+| `SIGNALS_PROVIDER` | auto | `unipile` or `apify` when both are set |
+| `SIGNALS_PAUSE_MS` | `1500` | pause between Unipile reads |
+| `OPENER_MODEL` | `anthropic/claude-sonnet-5.5` | OpenRouter model for the openers |
+| `OPENER_LANGUAGE` | `auto` | force a language for the openers, e.g. `en` or `nl` |
 
 ## Files
 
@@ -101,6 +152,8 @@ Everything the app creates lives in `data/`, which git ignores:
 - `setup.json`: your saved setup (the example setup is used until you save your own)
 - `runs/`: every full run with its results and the setup version it used
 - `labels.json`: your own answers from tab 3
+- `signals.json`: the looked-up signals per person (step 4)
+- `reachout.json`: Jev's Now/Soon/Later and your openers (step 4)
 
 ## About
 

@@ -5,6 +5,8 @@ import { ROOT, loadRecords, loadPeople, loadRun, listRuns, summarizeRun, loadLab
 import { loadSetup, saveSetup, requestFor, DEFAULT_SETUP } from './lib/setup.mjs';
 import { judgeOne, runBatch, retryFailed } from './lib/runner.mjs';
 import { jevConfig } from './lib/jev.mjs';
+import { loadSignals, providerConfig, signalFacts } from './lib/signals.mjs';
+import { loadReach, saveReach, targetsFor, runSignals, runOpeners, WHY_ANSWERS } from './lib/reachout.mjs';
 
 const PORT = Number(process.env.PORT || 3161);
 const PUBLIC = path.join(ROOT, 'public');
@@ -65,17 +67,51 @@ function nextToCheck(run) {
   return null;
 }
 
+// Step 4 list: targets of a run with their signals, Jev's "why now" and the opener. Sorted Now > Soon > Later.
+const WHY_ORDER = { now: 0, soon: 1, later: 2 };
+function reachoutView(run, q = {}) {
+  const includeMaybe = q.maybe === '1';
+  const targets = targetsFor(run, { includeMaybe });
+  const sigs = loadSignals();
+  const reach = loadReach();
+  const { byId } = loadRecords();
+  const names = q.names === '1';
+  const counts = { now: 0, soon: 0, later: 0, unchecked: 0, error: 0 };
+  let rows = targets.map((t) => {
+    const s = sigs[t.id];
+    const w = reach.why[t.id];
+    const key = s?.error || w?.error ? 'error' : w?.answer || 'unchecked';
+    counts[key] = (counts[key] || 0) + 1;
+    const st = byId.get(t.id)?.state || {};
+    return {
+      id: t.id, bucket: t.bucket, key,
+      ...(names ? { name: t.name, url: t.url } : {}),
+      title: s?.role?.title || st.job_title, company: s?.company?.name || st.company,
+      first_name: names ? s?.first_name : null,
+      facts: signalFacts(s), error: s?.error || w?.error || null,
+      why: w && !w.error ? { answer: w.answer, confidence: w.confidence } : null,
+      opener: reach.openers[t.id] || null,
+      last_post: s?.posts?.last_text || null,
+    };
+  });
+  rows.sort((a, b) => (WHY_ORDER[a.why?.answer] ?? 3) - (WHY_ORDER[b.why?.answer] ?? 3) || (b.why?.confidence ?? 0) - (a.why?.confidence ?? 0));
+  if (q.filter) rows = rows.filter((r) => r.key === q.filter);
+  const offset = Number(q.offset || 0), limit = Math.min(Number(q.limit || 20), 100000);
+  return { run_id: run.id, total_targets: targets.length, counts, answers: WHY_ANSWERS, last: reach.last_signals_run || null, total: rows.length, offset, rows: rows.slice(offset, offset + limit) };
+}
+
 function csvCell(v) { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }
 
 // ---------- batch job (one at a time, progress over SSE) ----------
+// kind: 'run' (tab 2), 'signals' or 'openers' (tab 4). Only one job at a time.
 let job = null;
-function startJob(total, work) {
+function startJob(total, work, { kind = 'run', summarize = summarizeRun } = {}) {
   if (job && !job.finished) throw new Error('A run is already in progress');
   const ctrl = new AbortController();
-  job = { finished: false, listeners: new Set(), last: { event: 'progress', data: { done: 0, total, cost: 0, elapsed_ms: 0, counts: {}, errors: 0 } }, abort: () => ctrl.abort() };
-  const emit = (event, data) => { job.last = { event, data }; for (const l of job.listeners) l(event, data); };
+  job = { kind, finished: false, listeners: new Set(), last: { event: 'progress', data: { kind, done: 0, total, cost: 0, elapsed_ms: 0, counts: {}, errors: 0 } }, abort: () => ctrl.abort() };
+  const emit = (event, data) => { job.last = { event, data: { kind, ...data } }; for (const l of job.listeners) l(event, job.last.data); };
   work({ signal: ctrl.signal, onProgress: (p) => emit('progress', p) })
-    .then((run) => emit('done', summarizeRun(run)))
+    .then((result) => emit('done', summarize(result)))
     .catch((e) => emit('error', { message: e.message }))
     .finally(() => { job.finished = true; });
   return job;
@@ -92,7 +128,8 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/state') {
       const { meta } = loadRecords();
       const cfg = jevConfig();
-      return send(res, 200, { meta, setup: loadSetup(), default_setup: DEFAULT_SETUP, runs: listRuns(), jev: { via: cfg.via, model: cfg.model, key: Boolean(cfg.key) }, job: job && !job.finished ? job.last : null });
+      const sp = providerConfig();
+      return send(res, 200, { meta, setup: loadSetup(), default_setup: DEFAULT_SETUP, runs: listRuns(), jev: { via: cfg.via, model: cfg.model, key: Boolean(cfg.key) }, signals: { provider: sp.provider, unipile: sp.unipile, apify: sp.apify, opener_model: process.env.OPENER_MODEL || 'anthropic/claude-sonnet-5.5' }, job: job && !job.finished ? job.last : null });
     }
 
     if (p === '/api/setup' && req.method === 'POST') return send(res, 200, saveSetup(await readBody(req)));
@@ -146,6 +183,46 @@ const server = http.createServer(async (req, res) => {
       job.listeners.add(l);
       req.on('close', () => job?.listeners.delete(l));
       return;
+    }
+
+    // ---------- step 4: reach out ----------
+    const ro = p.match(/^\/api\/reachout\/([\w-]+)(?:\/(\w+))?(?:\.csv)?$/);
+    if (ro) {
+      const run = loadRun(ro[1]);
+      if (!run) return send(res, 404, { error: 'run not found' });
+      const sub = ro[2];
+      const setup = loadSetup();
+      if (!sub) return send(res, 200, reachoutView(run, q));
+      if (sub === 'signals' && req.method === 'POST') {
+        const b = await readBody(req);
+        const n = targetsFor(run, { includeMaybe: Boolean(b.include_maybe) }).length;
+        startJob(b.limit ? Math.min(b.limit, n) : n, (o) => runSignals({ setup, run, includeMaybe: Boolean(b.include_maybe), limit: Number(b.limit) || 0, ...o }), { kind: 'signals', summarize: (x) => x });
+        return send(res, 200, { ok: true });
+      }
+      if (sub === 'openers' && req.method === 'POST') {
+        const b = await readBody(req);
+        if (b.ids?.length === 1) {
+          const r = await runOpeners({ setup, run, ids: b.ids, redo: true });
+          return send(res, 200, { ...r, opener: loadReach().openers[b.ids[0]] });
+        }
+        startJob(0, (o) => runOpeners({ setup, run, which: b.which || 'now', redo: Boolean(b.redo), ...o }), { kind: 'openers', summarize: (x) => x });
+        return send(res, 200, { ok: true });
+      }
+      if (sub === 'save' && req.method === 'POST') {
+        const b = await readBody(req);
+        const reach = loadReach();
+        reach.openers[b.id] = { ...(reach.openers[b.id] || {}), text: String(b.text || '').slice(0, 2000), edited: true, at: new Date().toISOString() };
+        saveReach(reach);
+        return send(res, 200, { ok: true });
+      }
+      if (sub === 'export') {
+        const v = reachoutView(run, { ...q, limit: 100000, names: '1' });
+        const head = ['id', 'name', 'profile_url', 'job_title', 'company', 'why_now', 'confidence', 'signals', 'opener'];
+        const lines = [head.join(',')];
+        for (const x of v.rows) lines.push([x.id, x.name, x.url, x.title, x.company, x.why?.answer, x.why?.confidence, x.facts.map((f) => f.text).join(' | '), x.opener?.text].map(csvCell).join(','));
+        res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${run.id}-reach-out.csv"` });
+        return res.end(lines.join('\n'));
+      }
     }
 
     const m = p.match(/^\/api\/runs\/([\w-]+)(?:\/(\w+))?(?:\.(csv))?$/);

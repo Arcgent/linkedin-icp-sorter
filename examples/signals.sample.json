@@ -1,0 +1,97 @@
+{
+  "_note": "Made-up signals for the people in Connections.sample.csv, keyed by profile id. Used automatically when the sample connections are loaded and no Unipile or Apify key is set. Dates are relative to today.",
+  "example-sanne-01": {
+    "first_name": "Sanne", "headline": "COO bij Van der Berg Logistiek | Warehousing en transport in de Randstad",
+    "location": "Rotterdam, South Holland, Netherlands", "title": "Chief Operating Officer", "company": "Van der Berg Logistiek B.V.",
+    "started_months_ago": 2, "employees": 184, "size_range": "51-200", "hq": "Rotterdam, NL", "industry": "Transportation, Logistics, Supply Chain and Storage",
+    "posts": [{ "days_ago": 3, "text": "Twee maanden binnen als COO. Grootste verrassing: hoeveel uur er nog in handmatige planning en Excel-lijsten gaat." }],
+    "jobs": [{ "title": "Operations Manager", "days_ago": 6 }, { "title": "Planner Transport", "days_ago": 12 }]
+  },
+  "example-mark-02": {
+    "first_name": "Mark", "headline": "Algemeen directeur Noordzee Installatiegroep",
+    "location": "Alkmaar, North Holland, Netherlands", "title": "Algemeen Directeur", "company": "Noordzee Installatiegroep",
+    "started_months_ago": 41, "employees": 96, "size_range": "51-200", "hq": "Alkmaar, NL", "industry": "Construction",
+    "posts": [{ "days_ago": 9, "text": "We groeien hard en zoeken monteurs, maar ook iemand die onze werkvoorbereiding en administratie strak trekt." }],
+    "jobs": [{ "title": "Werkvoorbereider", "days_ago": 4 }, { "title": "Administratief medewerker", "days_ago": 20 }]
+  },
+  "example-pieter-06": {
+    "first_name": "Pieter", "headline": "Head of Operations at Brabant Food Holding",
+    "location": "Eindhoven, North Brabant, Netherlands", "title": "Head of Operations", "company": "Brabant Food Holding",
+    "started_months_ago": 19, "employees": 310, "size_range": "201-500", "hq": "Eindhoven, NL", "industry": "Food and Beverage Manufacturing",
+    "posts": [{ "days_ago": 58, "text": "Proud of the team after a record quarter in production." }],
+    "jobs": []
+  },
+  "example-daan-08": {
+    "first_name": "Daan", "headline": "Eigenaar Jansen Techniek",
+    "location": "Zwolle, Overijssel, Netherlands", "title": "Eigenaar", "company": "Jansen Techniek BV",
+    "started_months_ago": 120, "employees": 8, "size_range": "2-10", "hq": "Zwolle, NL", "industry": "Industrial Machinery Manufacturing",
+    "posts": [], "jobs": []
+  },
+  "example-lucas-10": {
+    "first_name": "Lucas", "headline": "CFO Delta Bouwgroep",
+    "location": "Utrecht, Utrecht, Netherlands", "title": "CFO", "company": "Delta Bouwgroep",
+    "started_months_ago": 4, "employees": 420, "size_range": "201-500", "hq": "Utrecht, NL", "industry": "Construction",
+    "posts": [], "jobs": [{ "title": "Financial Controller", "days_ago": 15 }]
+  },
+  "example-bram-12": {
+    "first_name": "Bram", "headline": "Managing Director Vlaamse Transport NV",
+    "location": "Antwerp, Flemish Region, Belgium", "title": "Managing Director", "company": "Vlaamse Transport NV",
+    "started_months_ago": 66, "employees": 140, "size_range": "51-200", "hq": "Antwerpen, BE", "industry": "Truck Transportation",
+    "posts": [{ "days_ago": 21, "text": "Wie heeft ervaring met het automatiseren van CMR-documenten? Wij doen het nog grotendeels met de hand." }],
+    "jobs": []
+  },
+  "example-fleur-13": {
+    "first_name": "Fleur", "headline": "Manager Bedrijfsvoering | Rijnmond Zorggroep",
+    "location": "Schiedam, South Holland, Netherlands", "title": "Manager Bedrijfsvoering", "company": "Rijnmond Zorggroep",
+    "started_months_ago": 30, "employees": 860, "size_range": "501-1000", "hq": "Schiedam, NL", "industry": "Hospitals and Health Care",
+    "posts": [], "jobs": [{ "title": "Medewerker Planning", "days_ago": 30 }]
+  },
+  "example-jesse-16": {
+    "first_name": "Jesse", "headline": "Operationeel Directeur Oost Metaal Groep",
+    "location": "Enschede, Overijssel, Netherlands", "title": "Operationeel Directeur", "company": "Oost Metaal Groep",
+    "started_months_ago": 1, "employees": 230, "size_range": "201-500", "hq": "Hengelo, NL", "industry": "Machinery Manufacturing",
+    "posts": [], "jobs": []
+  },
+  "example-mila-17": {
+    "first_name": "Mila", "headline": "CEO Pacific Retail Co.",
+    "location": "Sydney, New South Wales, Australia", "title": "CEO", "company": "Pacific Retail Co. (Sydney)",
+    "started_months_ago": 3, "employees": 75, "size_range": "51-200", "hq": "Sydney, AU", "industry": "Retail",
+    "posts": [{ "days_ago": 2, "text": "Opening our fourth store next month." }], "jobs": [{ "title": "Store Manager", "days_ago": 5 }]
+  },
+  "example-thijs-18": {
+    "first_name": "Thijs", "headline": "Directeur-eigenaar Van Leeuwen Groothandel",
+    "location": "Venlo, Limburg, Netherlands", "title": "Directeur-eigenaar", "company": "Van Leeuwen Groothandel",
+    "started_months_ago": 200, "employees": 62, "size_range": "51-200", "hq": "Venlo, NL", "industry": "Wholesale",
+    "posts": [{ "days_ago": 120, "text": "40 jaar Van Leeuwen Groothandel!" }], "jobs": []
+  },
+  "example-sophie-19": {
+    "first_name": "Sophie", "headline": "Operations Manager at Holland Packaging Group",
+    "location": "Amersfoort, Utrecht, Netherlands", "title": "Operations Manager", "company": "Holland Packaging Group",
+    "started_months_ago": 14, "employees": 150, "size_range": "51-200", "hq": "Amersfoort, NL", "industry": "Packaging and Containers Manufacturing",
+    "posts": [{ "days_ago": 12, "text": "Looking for tips: how do you keep order intake and planning in sync without a full ERP project?" }], "jobs": []
+  },
+  "example-iris-21": {
+    "first_name": "Iris", "headline": "Directeur Groene Hart Kinderopvang",
+    "location": "Gouda, South Holland, Netherlands", "title": "Directeur", "company": "Groene Hart Kinderopvang",
+    "started_months_ago": 52, "employees": 120, "size_range": "51-200", "hq": "Gouda, NL", "industry": "Child Day Care Services",
+    "posts": [], "jobs": [{ "title": "Pedagogisch medewerker", "days_ago": 3 }, { "title": "Planner", "days_ago": 8 }]
+  },
+  "example-lotte-23": {
+    "first_name": "Lotte", "headline": "Founder & CEO Maas Distributie",
+    "location": "Maastricht, Limburg, Netherlands", "title": "Founder & CEO", "company": "Maas Distributie B.V.",
+    "started_months_ago": 90, "employees": 38, "size_range": "11-50", "hq": "Maastricht, NL", "industry": "Transportation, Logistics, Supply Chain and Storage",
+    "posts": [{ "days_ago": 5, "text": "Onze klantenservice krijgt elke dag 200 mails met dezelfde vraag: waar is mijn zending?" }], "jobs": [{ "title": "Klantenservice medewerker", "days_ago": 2 }]
+  },
+  "example-noor-11": {
+    "first_name": "Noor", "headline": "Eigenaar Kapsalon Noor",
+    "location": "Haarlem, North Holland, Netherlands", "title": "Owner", "company": "Kapsalon Noor",
+    "started_months_ago": 60, "employees": 3, "size_range": "2-10", "hq": "Haarlem, NL", "industry": "Personal Care Services",
+    "posts": [], "jobs": []
+  },
+  "example-milan-24": {
+    "first_name": "Milan", "headline": "Eigenaar Bakkerij",
+    "location": "Leiden, South Holland, Netherlands", "title": "Eigenaar", "company": "Bakkerij Example",
+    "started_months_ago": 150, "employees": 12, "size_range": "11-50", "hq": "Leiden, NL", "industry": "Food and Beverage Retail",
+    "posts": [], "jobs": []
+  }
+}

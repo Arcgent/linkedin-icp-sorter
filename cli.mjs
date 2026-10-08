@@ -2,9 +2,12 @@
 //   node cli.mjs one c04213              one record, prints the bucket and the exact request
 //   node cli.mjs run [--limit N] [--concurrency 300]   full run, saved to data/runs/
 //   node cli.mjs bench [--n 1000]        speed/cost test on synthetic records (no real data sent)
-import { loadRecords } from './lib/store.mjs';
+//   node cli.mjs signals [--run ID] [--limit N] [--maybe]   step 4: buying signals + Jev's "why now" for the Warm list
+//   node cli.mjs openers [--run ID] [--which now|soon] [--redo]   step 4: draft openers (nothing is sent)
+import { loadRecords, listRuns, loadRun } from './lib/store.mjs';
 import { loadSetup } from './lib/setup.mjs';
 import { judgeOne, runBatch } from './lib/runner.mjs';
+import { runSignals, runOpeners, loadReach } from './lib/reachout.mjs';
 
 const [cmd, ...rest] = process.argv.slice(2);
 const flag = (name, def) => { const i = rest.indexOf(`--${name}`); return i >= 0 ? rest[i + 1] : def; };
@@ -32,6 +35,24 @@ if (cmd === 'one') {
     onProgress: (p) => { if (p.done - last >= 1000 || p.done === p.total) { last = p.done; console.log(`${p.done}/${p.total}  ${(p.elapsed_ms / 1000).toFixed(1)}s  $${p.cost.toFixed(4)}  ${JSON.stringify(p.counts)}`); } },
   });
   console.log(JSON.stringify({ id: run.id, n: run.n, answered: run.answered, runtime_s: run.runtime_ms / 1000, cost_usd: run.cost_usd, retries: run.retries, counts: run.counts, errors: run.errors, model: run.model }, null, 2));
+} else if (cmd === 'signals' || cmd === 'openers') {
+  const runId = flag('run', listRuns()[0]?.id);
+  const run = runId && loadRun(runId);
+  if (!run) throw new Error('No full run yet. Do a full run first: npm run run');
+  let last = -1;
+  const onProgress = (p) => {
+    if (p.done === last) return;
+    last = p.done;
+    if (p.done % 10 === 0 || p.done === p.total) console.log(`${p.done}/${p.total}  ${(p.elapsed_ms / 1000).toFixed(0)}s  $${(p.cost || 0).toFixed(4)}${p.counts ? '  ' + JSON.stringify(p.counts) : ''}${p.status ? '  ' + p.status : ''}`);
+  };
+  const res = cmd === 'signals'
+    ? await runSignals({ setup, run, includeMaybe: rest.includes('--maybe'), limit: Number(flag('limit', 0)), onProgress })
+    : await runOpeners({ setup, run, which: flag('which', 'now'), redo: rest.includes('--redo'), onProgress });
+  console.log(JSON.stringify(res, null, 2));
+  if (cmd === 'openers') {
+    const reach = loadReach();
+    for (const [id, o] of Object.entries(reach.openers).slice(-5)) if (o.text) console.log(`\n${id}: ${o.text}`);
+  }
 } else {
-  console.log('Usage: node cli.mjs one <id> | run [--limit N] [--concurrency 300] | bench [--n 1000]');
+  console.log('Usage: node cli.mjs one <id> | run [--limit N] [--concurrency 300] | bench [--n 1000] | signals [--run ID] [--limit N] [--maybe] | openers [--run ID] [--which now] [--redo]');
 }
